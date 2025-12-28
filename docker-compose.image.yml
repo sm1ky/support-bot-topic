@@ -1,6 +1,6 @@
 services:
   bot:
-    image: ghcr.io/sm1ky/support-bot-topic/support-bot-topic:latest
+    image: ghcr.io/sm1ky/support-bot-topic:latest
     container_name: support-bot
     restart: always
     env_file:

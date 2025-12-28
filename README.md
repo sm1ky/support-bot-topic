@@ -54,7 +54,7 @@
 
     ```yaml
     # Опция 1: Использовать готовый образ из GitHub
-    # image: ghcr.io/sm1ky/support-bot-topic/:latest
+    # image: ghcr.io/sm1ky/support-bot-topic:latest
     
     # Опция 2: Собрать из локальных файлов
     build:
