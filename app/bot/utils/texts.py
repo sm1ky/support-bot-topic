@@ -34,14 +34,14 @@ class Text(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    def get(self, code: str) -> str:
+    def get(self, code: str, **kwargs) -> str:
         """
         Retrieves the text corresponding to the provided code in the current language.
 
         :param code: The code associated with the desired text.
         :return: The text in the current language.
         """
-        return self.data[self.language_code][code]
+        return self.data[self.language_code][code].format(**kwargs)
 
 
 class TextMessage(Text):

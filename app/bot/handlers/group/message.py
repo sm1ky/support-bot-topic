@@ -98,7 +98,6 @@ async def handler(
     if user_data.topic_status == "closed":
         text = manager.text_message.get(
             "topic_closed_warning",
-            "⚠️ Топик закрыт! Откройте топик, чтобы отправлять сообщения пользователю.",
         )
         msg = await message.reply(text)
         await asyncio.sleep(10)
