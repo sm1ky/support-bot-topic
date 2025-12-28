@@ -4,7 +4,6 @@ WORKDIR /usr/src/app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/usr/src/app \
     POETRY_VERSION=2.1.4 \
     POETRY_HOME="/opt/poetry" \
     POETRY_NO_INTERACTION=1 \
@@ -18,4 +17,4 @@ RUN poetry install --no-root --only main
 
 COPY . .
 
-CMD ["python", "-m", "app"]
+CMD ["poetry", "run", "python", "-m", "app.bot"]
