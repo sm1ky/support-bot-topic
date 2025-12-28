@@ -1,0 +1,31 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: support-bot
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - network
+    volumes:
+      - ./:/usr/src/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  redis:
+    image: redis:alpine
+    container_name: support-redis
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./redis/data/:/data
+    networks:
+      - network
+
+networks:
+  network:
