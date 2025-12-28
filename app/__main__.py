@@ -73,7 +73,10 @@ async def main() -> None:
     storage = RedisStorage(redis_client)
 
     bot = Bot(
-        token=config.bot.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+        token=config.bot.TOKEN,
+        default=DefaultBotProperties(
+            parse_mode=ParseMode.HTML, link_preview_is_disabled=True
+        ),
     )
     dp = Dispatcher(
         persistent_scheduler=persistent_scheduler,
