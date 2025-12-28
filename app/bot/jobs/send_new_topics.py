@@ -1,4 +1,4 @@
-import aioredis
+from redis import asyncio as aioredis
 import logging
 import json
 from typing import List
@@ -9,6 +9,7 @@ from app.config import Config
 
 logger = logging.getLogger(__name__)
 THREAD_LINK_TEMPLATE = "https://t.me/c/{chat_id}/{thread_id}"
+
 
 async def send_new_topics(bot: Bot, config: Config) -> None:
     """Отправляет сводку новых топиков в указанную группу.
@@ -29,18 +30,23 @@ async def send_new_topics(bot: Bot, config: Config) -> None:
             if not users_data:
                 logger.info("Нет данных о пользователях в Redis")
                 return
-            
 
             new_threads: List[str] = []
-            
+
             for user_id in user_ids:
                 user_data_json = users_data.get(str(user_id).encode())
                 if user_data_json:
                     user_data = UserData(**json.loads(user_data_json))
-                    if user_data.topic_status == "new" and user_data.message_thread_id is not None:
-                        thread_link = THREAD_LINK_TEMPLATE.format(chat_id=LINK_CHAT_ID, thread_id=user_data.message_thread_id)
-                        new_threads.append(f'<a href="{thread_link}">{user_data.full_name}</a>')
-            
+                    if (
+                        user_data.topic_status == "new"
+                        and user_data.message_thread_id is not None
+                    ):
+                        thread_link = THREAD_LINK_TEMPLATE.format(
+                            chat_id=LINK_CHAT_ID, thread_id=user_data.message_thread_id
+                        )
+                        new_threads.append(
+                            f'<a href="{thread_link}">{user_data.full_name}</a>'
+                        )
 
             if new_threads:
                 message = (
@@ -49,9 +55,11 @@ async def send_new_topics(bot: Bot, config: Config) -> None:
                     "<b>Всего новых топиков: {count}</b>"
                 ).format(
                     threads="\n".join(f"- {link}" for link in new_threads),
-                    count=len(new_threads)
+                    count=len(new_threads),
                 )
-                await bot.send_message(chat_id=GROUP_CHAT_ID, text=message, parse_mode="HTML")
+                await bot.send_message(
+                    chat_id=GROUP_CHAT_ID, text=message, parse_mode="HTML"
+                )
             else:
                 logger.info("Нет топиков для сводки")
     except Exception as e:

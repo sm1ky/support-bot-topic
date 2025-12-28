@@ -17,4 +17,4 @@ RUN poetry install --no-root --only main
 
 COPY . .
 
-CMD ["poetry", "run", "python", "-m", "app.bot"]
+CMD ["poetry", "run", "python", "-m", "app"]

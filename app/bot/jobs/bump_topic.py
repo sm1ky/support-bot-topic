@@ -1,4 +1,4 @@
-import aioredis
+from redis import asyncio as aioredis
 import asyncio
 import logging
 import json
@@ -9,6 +9,7 @@ from app.config import Config
 from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
+
 
 async def bump_topic(bot: Bot, config: Config) -> None:
     """Отправляет сообщение 'BUMP' в топики пользователей с topic_status 'new' или 'open',
@@ -36,10 +37,15 @@ async def bump_topic(bot: Bot, config: Config) -> None:
                 user_data_json = users_data.get(str(user_id).encode())
                 if user_data_json:
                     user_data = UserData(**json.loads(user_data_json))
-                    if user_data.topic_status in ("new", "open") and user_data.message_thread_id is not None:
+                    if (
+                        user_data.topic_status in ("new", "open")
+                        and user_data.message_thread_id is not None
+                    ):
                         if user_data.last_message_date:
                             try:
-                                last_message_time = datetime.strptime(user_data.last_message_date, "%Y-%m-%d %H:%M:%S%z")
+                                last_message_time = datetime.strptime(
+                                    user_data.last_message_date, "%Y-%m-%d %H:%M:%S%z"
+                                )
                                 time_difference = current_time - last_message_time
                                 if time_difference > timedelta(minutes=5):
                                     try:
@@ -47,18 +53,29 @@ async def bump_topic(bot: Bot, config: Config) -> None:
                                             chat_id=GROUP_CHAT_ID,
                                             text="🆙 <b>BUMP</b> 🆙",
                                             message_thread_id=user_data.message_thread_id,
-                                            parse_mode="HTML"
+                                            parse_mode="HTML",
                                         )
-                                        logger.info(f"Отправлен BUMP в thread_id={user_data.message_thread_id} для user_id={user_id}")
+                                        logger.info(
+                                            f"Отправлен BUMP в thread_id={user_data.message_thread_id} для user_id={user_id}"
+                                        )
                                         await asyncio.sleep(0.5)
                                     except Exception as e:
-                                        logger.error(f"Ошибка при отправке BUMP для user_id={user_id}: {e}", exc_info=True)
+                                        logger.error(
+                                            f"Ошибка при отправке BUMP для user_id={user_id}: {e}",
+                                            exc_info=True,
+                                        )
                                 else:
-                                    logger.info(f"Не прошло 2 часа с последнего сообщения для user_id={user_id}")
+                                    logger.info(
+                                        f"Не прошло 2 часа с последнего сообщения для user_id={user_id}"
+                                    )
                             except ValueError as e:
-                                logger.error(f"Ошибка парсинга last_message_date для user_id={user_id}: {e}")
+                                logger.error(
+                                    f"Ошибка парсинга last_message_date для user_id={user_id}: {e}"
+                                )
                         else:
-                            logger.info(f"last_message_date не установлена для user_id={user_id}, пропускаем")
+                            logger.info(
+                                f"last_message_date не установлена для user_id={user_id}, пропускаем"
+                            )
 
             logger.info("Задача bump_topic выполнена")
     except Exception as e:
