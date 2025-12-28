@@ -10,6 +10,7 @@ from aiogram.utils.markdown import hlink
 from app.bot.manager import Manager
 from app.bot.types.album import Album
 from app.bot.utils.redis import RedisStorage
+from app.bot.utils.redis.models import UserData
 from app.bot.utils.topics import TopicManager
 
 from app.bot.handlers.group.windows import Window
@@ -87,34 +88,22 @@ async def handler(
     :param album: Album object or None.
     :return: None
     """
-    user_data = await redis.get_by_message_thread_id(message.message_thread_id)
+    user_data: UserData | None = await redis.get_by_message_thread_id(
+        message.message_thread_id
+    )
     if not user_data:
         return None  # noqa
 
     # Проверяем, открыт ли топик
-    try:
-        chat = await message.bot.get_chat(message.chat.id)
-        forum_topic = await message.bot.get_forum_topic_icon_stickers(message.chat.id)
-
-        # Получаем информацию о топике
-        topic_manager = TopicManager(redis)
-        is_closed = await topic_manager.is_topic_closed(
-            message.chat.id, message.message_thread_id
+    if user_data.topic_status == "closed":
+        text = manager.text_message.get(
+            "topic_closed_warning",
+            "⚠️ Топик закрыт! Откройте топик, чтобы отправлять сообщения пользователю.",
         )
-
-        if is_closed:
-            text = manager.text_message.get(
-                "topic_closed_warning",
-                "⚠️ Топик закрыт! Откройте топик, чтобы отправлять сообщения пользователю.",
-            )
-            msg = await message.reply(text)
-            await asyncio.sleep(10)
-            await msg.delete()
-            return
-
-    except Exception:
-        # Если не удалось проверить статус топика, продолжаем работу
-        pass
+        msg = await message.reply(text)
+        await asyncio.sleep(10)
+        await msg.delete()
+        return
 
     if user_data.message_silent_mode:
         # If silent mode is enabled, ignore all messages.
