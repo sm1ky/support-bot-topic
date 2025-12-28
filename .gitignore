@@ -23,3 +23,5 @@ htmlcov/
 .coverage
 .coverage.*
 .cache      
+./redis/
+redis/data/dump.rdb

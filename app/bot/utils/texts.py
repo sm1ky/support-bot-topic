@@ -141,6 +141,7 @@ class TextMessage(Text):
                 "confirm_clear_all_notifications": "Вы уверены, что хотите удалить ВСЕ уведомления?",
                 "delete_notification_title": "Удаление уведомления",
                 "clear_all_notifications_title": "Очистка всех уведомлений",
+                "topic_closed_warning": "⚠️ Топик закрыт! Откройте топик, чтобы отправлять сообщения пользователю.",
             },
             "en": {
                 "select_language": "👋 <b>Hello</b>, {full_name}!\n\nSelect a language:",
@@ -224,5 +225,6 @@ class TextMessage(Text):
                 "confirm_clear_all_notifications": "Are you sure you want to delete ALL notifications?",
                 "delete_notification_title": "Delete notification",
                 "clear_all_notifications_title": "Clear all notifications",
+                "topic_closed_warning": "⚠️ The topic is closed! Open the topic to send messages to the user.",
             },
         }

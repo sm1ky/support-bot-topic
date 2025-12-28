@@ -17,10 +17,10 @@ router.message.filter(F.chat.type == "private")
 
 @router.message(Command("start"))
 async def handler(
-        message: Message,
-        manager: Manager,
-        redis: RedisStorage,
-        user_data: UserData,
+    message: Message,
+    manager: Manager,
+    redis: RedisStorage,
+    user_data: UserData,
 ) -> None:
     """
     Handles the /start command.
@@ -37,8 +37,12 @@ async def handler(
     if user_data.language_code:
         # Проверяем наличие важных уведомлений
         notification_manager = NotificationManager(redis)
-        has_notifications = await notification_manager.show_important_notifications_with_confirmation(manager, user_data.id)
-        
+        has_notifications = (
+            await notification_manager.show_important_notifications_with_confirmation(
+                manager, user_data.id
+            )
+        )
+
         # Если были показаны уведомления, не показываем главное меню
         # Оно будет показано после подтверждения уведомлений
         if not has_notifications:
@@ -46,9 +50,6 @@ async def handler(
     else:
         await Window.select_language(manager)
     await manager.delete_message(message)
-
-    # Create the forum topic
-    await get_or_create_forum_topic(message.bot, redis, manager.config, user_data)
 
 
 @router.message(Command("time"))
@@ -81,7 +82,9 @@ async def handler(message: Message, manager: Manager, user_data: UserData) -> No
 
 
 @router.message(Command("notifications"))
-async def notifications_handler(message: Message, manager: Manager, redis: RedisStorage, user_data: UserData) -> None:
+async def notifications_handler(
+    message: Message, manager: Manager, redis: RedisStorage, user_data: UserData
+) -> None:
     """
     Обрабатывает команду /notifications.
     Отображает настройки уведомлений пользователя и позволяет включить/выключить уведомления.
@@ -101,10 +104,10 @@ async def notifications_handler(message: Message, manager: Manager, redis: Redis
     MagicData(F.event_from_user.id == F.config.bot.DEV_ID),  # type: ignore
 )
 async def handler(
-        message: Message,
-        manager: Manager,
-        an_manager: ANManager,
-        redis: RedisStorage,
+    message: Message,
+    manager: Manager,
+    an_manager: ANManager,
+    redis: RedisStorage,
 ) -> None:
     """
     Handles the /newsletter command.
@@ -124,7 +127,9 @@ async def handler(
     Command("add_notification"),
     MagicData(F.event_from_user.id == F.config.bot.DEV_ID),  # type: ignore
 )
-async def add_notification_handler(message: Message, manager: Manager, redis: RedisStorage) -> None:
+async def add_notification_handler(
+    message: Message, manager: Manager, redis: RedisStorage
+) -> None:
     """
     Обрабатывает команду /add_notification для админа.
     Позволяет добавить новое системное уведомление.
@@ -136,25 +141,29 @@ async def add_notification_handler(message: Message, manager: Manager, redis: Re
     """
     # Парсим аргументы команды
     command_parts = message.text.split(maxsplit=3)
-    
+
     if len(command_parts) < 3:
-        await message.reply("Использование: /add_notification [важность] [текст]\n"
-                          "Где важность: normal, important, critical")
+        await message.reply(
+            "Использование: /add_notification [важность] [текст]\n"
+            "Где важность: normal, important, critical"
+        )
         return
-    
+
     importance = command_parts[1].lower()
     notification_text = command_parts[2]
-    
+
     if len(command_parts) > 3:
         notification_text += " " + command_parts[3]
-    
+
     if importance not in ["normal", "important", "critical"]:
-        await message.reply("Неверный уровень важности. Используйте: normal, important, critical")
+        await message.reply(
+            "Неверный уровень важности. Используйте: normal, important, critical"
+        )
         return
-    
+
     notification_manager = NotificationManager(redis)
     success = await notification_manager.add_notification(notification_text, importance)
-    
+
     if success:
         await message.reply(manager.text_message.get("add_notification_success"))
     else:

@@ -7,6 +7,7 @@ from aiogram.types import InlineKeyboardButton
 
 from app.bot.handlers.private.windows import Window
 from app.bot.manager import Manager
+from app.bot.utils.create_forum_topic import get_or_create_forum_topic
 from app.bot.utils.redis import RedisStorage
 from app.bot.utils.redis.models import UserData
 from app.bot.utils.texts import SUPPORTED_LANGUAGES
@@ -293,6 +294,8 @@ async def handler(
 
     if choice == "other":
         await manager.state.set_state(Form.OTHER)
+
+    await get_or_create_forum_topic(call.bot, redis, manager.config, user_data)
 
     await Window.request(manager)
     await call.answer()

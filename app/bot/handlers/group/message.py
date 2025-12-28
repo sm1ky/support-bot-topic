@@ -27,10 +27,15 @@ router.message.filter(
 async def handler(message: Message, manager: Manager, redis: RedisStorage) -> None:
     await asyncio.sleep(3)
     user_data = await redis.get_by_message_thread_id(message.message_thread_id)
-    if not user_data: return None  # noqa
+    if not user_data:
+        return None  # noqa
 
     # Generate a URL for the user's profile
-    url = f"https://t.me/{user_data.username[1:]}" if user_data.username != "-" else f"tg://user?id={user_data.id}"
+    url = (
+        f"https://t.me/{user_data.username[1:]}"
+        if user_data.username != "-"
+        else f"tg://user?id={user_data.id}"
+    )
 
     # Get the appropriate text based on the user's state
     text = manager.text_message.get("user_started_bot")
@@ -38,16 +43,22 @@ async def handler(message: Message, manager: Manager, redis: RedisStorage) -> No
     message = await message.bot.send_message(
         chat_id=manager.config.bot.GROUP_ID,
         text=text.format(name=hlink(user_data.full_name, url)),
-        message_thread_id=user_data.message_thread_id
+        message_thread_id=user_data.message_thread_id,
     )
 
-    await Window.menu_of_user(manager, message, redis)
+    # await Window.menu_of_user(manager, message, redis)
 
     # Pin the message
     await message.pin()
 
 
-@router.message(F.pinned_message | F.forum_topic_edited | F.forum_topic_closed | F.forum_topic_reopened | F.forum_topic)
+@router.message(
+    F.pinned_message
+    | F.forum_topic_edited
+    | F.forum_topic_closed
+    | F.forum_topic_reopened
+    | F.forum_topic
+)
 async def handler(message: Message) -> None:
     """
     Delete service messages such as pinned, edited, closed, or reopened forum topics.
@@ -60,7 +71,12 @@ async def handler(message: Message) -> None:
 
 @router.message(F.media_group_id, F.from_user[F.is_bot.is_(False)])
 @router.message(F.media_group_id.is_(None), F.from_user[F.is_bot.is_(False)])
-async def handler(message: Message, manager: Manager, redis: RedisStorage, album: Optional[Album] = None) -> None:
+async def handler(
+    message: Message,
+    manager: Manager,
+    redis: RedisStorage,
+    album: Optional[Album] = None,
+) -> None:
     """
     Handles user messages and sends them to the respective user.
     If silent mode is enabled for the user, the messages are ignored.
@@ -72,7 +88,33 @@ async def handler(message: Message, manager: Manager, redis: RedisStorage, album
     :return: None
     """
     user_data = await redis.get_by_message_thread_id(message.message_thread_id)
-    if not user_data: return None  # noqa
+    if not user_data:
+        return None  # noqa
+
+    # Проверяем, открыт ли топик
+    try:
+        chat = await message.bot.get_chat(message.chat.id)
+        forum_topic = await message.bot.get_forum_topic_icon_stickers(message.chat.id)
+
+        # Получаем информацию о топике
+        topic_manager = TopicManager(redis)
+        is_closed = await topic_manager.is_topic_closed(
+            message.chat.id, message.message_thread_id
+        )
+
+        if is_closed:
+            text = manager.text_message.get(
+                "topic_closed_warning",
+                "⚠️ Топик закрыт! Откройте топик, чтобы отправлять сообщения пользователю.",
+            )
+            msg = await message.reply(text)
+            await asyncio.sleep(10)
+            await msg.delete()
+            return
+
+    except Exception:
+        # Если не удалось проверить статус топика, продолжаем работу
+        pass
 
     if user_data.message_silent_mode:
         # If silent mode is enabled, ignore all messages.
@@ -99,4 +141,3 @@ async def handler(message: Message, manager: Manager, redis: RedisStorage, album
     await asyncio.sleep(5)
     # Delete the reply to the edited message
     await msg.delete()
-
