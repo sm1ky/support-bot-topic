@@ -1,6 +1,5 @@
 .DS_Store
 .env
-redis/
 .logs/
 __pycache__/
 *.pyc
