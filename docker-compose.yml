@@ -1,9 +1,7 @@
 services:
   bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: support-bot
+    image: ghcr.io/sm1ky/support-bot-topic:latest
+    container_name: support-bot-topic
     restart: always
     env_file:
       - .env
@@ -11,10 +9,9 @@ services:
       - redis
     networks:
       - network
-    volumes:
-      - ./:/usr/src/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    command: ["python", "-m", "app.bot"]
 
   redis:
     image: redis:alpine

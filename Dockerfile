@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/bot
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

@@ -33,7 +33,6 @@
 3. Настрой переменные в `.env`:
 
     ```bash
-    cp .env.example .env
     nano .env
     ```
 
