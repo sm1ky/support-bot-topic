@@ -295,8 +295,6 @@ async def handler(
     if choice == "other":
         await manager.state.set_state(Form.OTHER)
 
-    await get_or_create_forum_topic(call.bot, redis, manager.config, user_data)
-
     await Window.request(manager)
     await call.answer()
 

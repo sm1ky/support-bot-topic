@@ -66,7 +66,7 @@ class TextMessage(Text):
                     "Здесь вы можете получить помощь, если у вас возникли вопросы или проблемы с нашим ботом.\n\n"
                     "<b>Выберите тему обращения:</b>"
                 ),
-                "message_sent": "<b>Сообщение отправлено!</b> Ожидайте ответа.",
+                "message_sent": "<b>Сообщение отправлено!</b> Ожидайте ответа.\n\nВаша позиция в очереди: {position}",
                 "message_edited": (
                     "<b>Сообщение отредактировано только в вашем чате.</b> "
                     "Чтобы отправить отредактированное сообщение, отправьте его как новое сообщение."
@@ -152,7 +152,7 @@ class TextMessage(Text):
                     "Here you can get assistance if you have questions or issues with our bot.\n\n"
                     "<b>Select a topic:</b>"
                 ),
-                "message_sent": "<b>Message sent!</b> Please wait for a reply.",
+                "message_sent": "<b>Message sent!</b> Please wait for a reply.\n\nYour position in the queue: {position}",
                 "message_edited": (
                     "<b>The message has been edited only in your chat.</b> "
                     "To send the edited message, send it as a new message."

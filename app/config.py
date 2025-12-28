@@ -14,6 +14,7 @@ class BotConfig:
     - GROUP_ID (int): The group chat ID.
     - BOT_EMOJI_ID (str): The custom emoji ID for the group's topic.
     - BOT_NAME (str): The custom bot name shows in the main menu
+    - DISABLE_BUMP (bool): Flag to disable automatic bumping of topics.
     """
 
     TOKEN: str
@@ -21,6 +22,7 @@ class BotConfig:
     GROUP_ID: int
     BOT_EMOJI_ID: str
     BOT_NAME: str
+    DISABLE_BUMP: bool = False
 
 
 @dataclass

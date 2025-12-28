@@ -1,5 +1,7 @@
 from contextlib import suppress
-from typing import Any, Dict, Optional
+from datetime import datetime, timedelta, timezone
+import json
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from aiogram import Bot
@@ -203,3 +205,89 @@ class TopicManager:
         key = f"topic_status:{chat_id}:{message_thread_id}"
         status = await self.redis.redis.get(key)
         return status == b"closed"
+
+    async def get_question_position(user_id: int, storage: RedisStorage) -> int:
+        """
+        Возвращает порядковый номер пользователя в очереди на обработку.
+
+        В очередь включаются только записи, находящиеся в состоянии "new".
+        Позиция рассчитывается по времени появления топика (FIFO).
+
+        Args:
+            user_id: ID пользователя.
+            storage: экземпляр RedisStorage.
+
+        Returns:
+            Позиция пользователя (от 1 и выше). Если пользователь в очереди отсутствует — 0.
+        """
+
+        def parse_datetime(value: str) -> datetime:
+            """
+            Универсальный разбор строки даты (приведён к минимальному читабельному формату).
+            """
+            try:
+                try:
+                    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S%z")
+                except Exception:
+                    pass
+
+                if "UTC+" in value:
+                    base, tz = value.rsplit(" UTC+", 1)
+                    base_dt = datetime.strptime(base, "%Y-%m-%d %H:%M:%S")
+                    offset = int(tz.split(":")[0])
+                    return base_dt.replace(tzinfo=timezone(timedelta(hours=offset)))
+
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+
+            except Exception as exc:
+                logging.error("Failed to parse datetime '%s': %s", value, exc)
+                raise
+
+        try:
+            user_ids = await storage.get_all_users_ids()
+            raw_map: dict[bytes, bytes] = await storage.redis.hgetall(storage.NAME)
+        except Exception as exc:
+            logging.error(
+                "Не удалось получить данные Redis для расчёта позиции очереди",
+                exc_info=True,
+            )
+            return 0
+
+        if not raw_map or not user_ids:
+            return 0
+
+        queue: List[Tuple[int, datetime]] = []
+
+        for uid in user_ids:
+            raw = raw_map.get(str(uid).encode())
+            if not raw:
+                continue
+
+            try:
+                data = UserData(**json.loads(raw))
+            except Exception as exc:
+                logging.warning("Повреждённые данные пользователя %s: %s", uid, exc)
+                continue
+
+            if data.topic_status != "new":
+                continue
+
+            ts = data.created_at
+            try:
+                created_at = parse_datetime(ts)
+            except Exception:
+                logging.debug("Невалидное время топика у %s: %s", uid, ts)
+                continue
+
+            queue.append((data.id, created_at))
+
+        if not queue:
+            return 0
+
+        queue.sort(key=lambda item: item[1])
+
+        for pos, (uid, _) in enumerate(queue, start=1):
+            if uid == user_id:
+                return pos
+
+        return 0

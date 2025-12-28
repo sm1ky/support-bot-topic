@@ -27,14 +27,16 @@ from app.bot.utils.notifications import NotificationManager
 from aiogram_newsletter.utils.states import ANState
 
 router = Router()
-router.message.filter(
-    (F.chat.type == "private"),
-    ~StateFilter(ANState)
+router.message.filter((F.chat.type == "private"), ~StateFilter(ANState))
+
+
+@router.message(
+    StateFilter("waiting_notification_text"),
+    MagicData(F.event_from_user.id == F.config.bot.DEV_ID),
 )
-
-
-@router.message(StateFilter("waiting_notification_text"), MagicData(F.event_from_user.id == F.config.bot.DEV_ID))
-async def handle_notification_text(message: Message, manager: Manager, redis: RedisStorage) -> None:
+async def handle_notification_text(
+    message: Message, manager: Manager, redis: RedisStorage
+) -> None:
     """
     Обрабатывает ввод текста уведомления.
 
@@ -46,26 +48,26 @@ async def handle_notification_text(message: Message, manager: Manager, redis: Re
     # Получаем данные о важности уведомления
     state_data = await manager.state.get_data()
     importance = state_data.get("notification_importance", "normal")
-    
+
     # Создаем уведомление
     notification_manager = NotificationManager(redis)
     success = await notification_manager.add_notification(message.text, importance)
-    
+
     # Сбрасываем состояние
     await manager.state.clear()
-    
+
     if success:
         # Сообщение об успешном создании уведомления
         text = manager.text_message.get("add_notification_success")
         await manager.send_message(text)
-        
+
         # Возвращаемся в админ-меню
         await Window.admin_menu(manager, redis)
     else:
         # Сообщение об ошибке
         text = manager.text_message.get("add_notification_error")
         await manager.send_message(text)
-    
+
     # Удаляем сообщение с текстом уведомления
     await manager.delete_message(message)
 
@@ -76,11 +78,11 @@ async def handle_notification_text(message: Message, manager: Manager, redis: Re
 @router.message(F.media_group_id)
 @router.message(F.media_group_id.is_(None))
 async def handle_waiting_state(
-        message: Message,
-        manager: Manager,
-        redis: RedisStorage,
-        user_data: UserData,
-        album: Album | None = None,
+    message: Message,
+    manager: Manager,
+    redis: RedisStorage,
+    user_data: UserData,
+    album: Album | None = None,
 ) -> None:
     """
     Handle messages in the waiting state.
@@ -107,14 +109,20 @@ async def handle_waiting_state(
 
     # Проверка: если статус "closed" или не установлен, то установить "new"
     if user_data.topic_status == "closed" or not user_data.topic_status:
-        logging.info(f"Изменяем статус с '{user_data.topic_status}' на 'new' для пользователя {user_data.id}")
+        logging.info(
+            f"Изменяем статус с '{user_data.topic_status}' на 'new' для пользователя {user_data.id}"
+        )
         await topic_manager.new_topic(message, user_data)
-        
+
         # Проверяем наличие важных уведомлений при создании нового тикета
         notification_manager = NotificationManager(redis)
-        await notification_manager.show_important_notifications_with_confirmation(manager, user_data.id)
+        await notification_manager.show_important_notifications_with_confirmation(
+            manager, user_data.id
+        )
 
-    if current_state is None and (not user_data.topic_status or user_data.topic_status == "closed"):
+    if current_state is None and (
+        not user_data.topic_status or user_data.topic_status == "closed"
+    ):
         return await Window.main_menu(manager)
 
     async def copy_message_to_topic():
@@ -129,7 +137,6 @@ async def handle_waiting_state(
             manager.config,
             user_data,
         )
-        
 
         choose = state_data.get("choosed_service")
         service_id = state_data.get("service_id")
@@ -143,10 +150,18 @@ async def handle_waiting_state(
         elif current_state == Form.OTHER:
             message_text = manager.text_message.get("other_question")
         else:
-            message_text=""
-        
+            message_text = ""
+
         if current_state is not None:
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Принять обращение", callback_data="apply_appeal")]])
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="✅ Принять обращение", callback_data="apply_appeal"
+                        )
+                    ]
+                ]
+            )
             await message.bot.send_message(
                 chat_id=manager.config.bot.GROUP_ID,
                 message_thread_id=message_thread_id,
@@ -165,7 +180,9 @@ async def handle_waiting_state(
                 message_thread_id=message_thread_id,
             )
 
-        last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S%z")
+        last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime(
+            "%Y-%m-%d %H:%M:%S%z"
+        )
         user_data.last_message_date = last_message_date
         await redis.update_user(user_data.id, user_data)
         print(f"Last message date updated: {user_data.last_message_date}")
@@ -190,13 +207,17 @@ async def handle_waiting_state(
     request_message = state_data.get("request_message")
     if request_message is not None:
         await message.bot.delete_message(
-            chat_id=user_data.id,
-            message_id=request_message
+            chat_id=user_data.id, message_id=request_message
         )
         await manager.state.update_data(request_message=None)
 
     # Send a confirmation message to the user
+    get_question_position: int | None = await topic_manager.get_question_position(
+        user_data.id
+    )
     text = manager.text_message.get("message_sent")
+    with suppress(IndexError, KeyError):
+        text = text.format(position=get_question_position)
     # Reply to the edited message with the specified text
     msg = await message.reply(text)
     # Wait for 5 seconds before deleting the reply
