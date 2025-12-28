@@ -1,13 +1,20 @@
-FROM python:3.10-slim-buster
+FROM python:3.12-slim
 
 WORKDIR /usr/src/app
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    POETRY_VERSION=2.1.4 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=false
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir poetry==${POETRY_VERSION}
+
+COPY pyproject.toml poetry.lock ./
+
+RUN poetry install --no-root --only main
 
 COPY . .
+
 CMD ["python", "-m", "app"]
