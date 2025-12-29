@@ -206,7 +206,7 @@ class TopicManager:
         status = await self.redis.redis.get(key)
         return status == b"closed"
 
-    async def get_question_position(user_id: int, storage: RedisStorage) -> int:
+    async def get_question_position(self, user_id: int) -> int:
         """
         Возвращает порядковый номер пользователя в очереди на обработку.
 
@@ -215,7 +215,6 @@ class TopicManager:
 
         Args:
             user_id: ID пользователя.
-            storage: экземпляр RedisStorage.
 
         Returns:
             Позиция пользователя (от 1 и выше). Если пользователь в очереди отсутствует — 0.
@@ -244,8 +243,8 @@ class TopicManager:
                 raise
 
         try:
-            user_ids = await storage.get_all_users_ids()
-            raw_map: dict[bytes, bytes] = await storage.redis.hgetall(storage.NAME)
+            user_ids = await self.redis.get_all_users_ids()
+            raw_map: dict[bytes, bytes] = await self.redis.redis.hgetall(self.NAME)
         except Exception as exc:
             logging.error(
                 "Не удалось получить данные Redis для расчёта позиции очереди",
