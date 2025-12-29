@@ -92,6 +92,7 @@ def load_config() -> Config:
             GROUP_ID=env.int("BOT_GROUP_ID"),
             BOT_EMOJI_ID=env.str("BOT_EMOJI_ID"),
             BOT_NAME=env.str("BOT_NAME"),
+            DISABLE_BUMP=env.str("DISABLE_BUMP", "false").lower() == "true",
         ),
         redis=RedisConfig(
             HOST=env.str("REDIS_HOST"),
