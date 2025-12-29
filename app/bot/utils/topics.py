@@ -244,7 +244,9 @@ class TopicManager:
 
         try:
             user_ids = await self.redis.get_all_users_ids()
-            raw_map: dict[bytes, bytes] = await self.redis.redis.hgetall(self.NAME)
+            raw_map: dict[bytes, bytes] = await self.redis.redis.hgetall(
+                self.redis.NAME
+            )
         except Exception as exc:
             logging.error(
                 "Не удалось получить данные Redis для расчёта позиции очереди",
