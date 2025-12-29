@@ -212,7 +212,7 @@ async def handle_waiting_state(
         await manager.state.update_data(request_message=None)
 
     # Send a confirmation message to the user
-    get_question_position: int | None = await TopicManager.get_question_position(
+    get_question_position: int | None = await topic_manager.get_question_position(
         user_data.id
     )
     text = manager.text_message.get("message_sent")
