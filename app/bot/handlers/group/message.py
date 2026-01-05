@@ -131,23 +131,6 @@ async def handler(
             # Копируем альбом пользователю
             msg_list = await album.copy_to(chat_id=user_data.id)
 
-            # Собираем все подписи из альбома
-            captions = []
-            for idx, msg_item in enumerate(msg_list, start=1):
-                if hasattr(msg_item, "caption") and msg_item.caption:
-                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
-                elif hasattr(msg_item, "caption"):
-                    captions.append(f"📸 Фото {idx}: [без подписи]")
-
-            # Если есть подписи, отправляем их сводкой
-            if captions:
-                captions_text = "\n\n".join(captions)
-                await message.bot.send_message(
-                    chat_id=user_data.id,
-                    text=f"<b>📝 Подписи к медиа:</b>\n\n{captions_text}",
-                    parse_mode="HTML",
-                )
-
     except TelegramAPIError as ex:
         if "blocked" in ex.message:
             text = manager.text_message.get("blocked_by_user")

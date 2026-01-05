@@ -206,7 +206,8 @@ class TopicManager:
         status = await self.redis.redis.get(key)
         return status == b"closed"
 
-    async def get_question_position(self, user_id: int) -> int:
+    @staticmethod
+    async def get_question_position(redis_storage: RedisStorage, user_id: int) -> int:
         """
         Возвращает порядковый номер пользователя в очереди на обработку.
 
@@ -243,9 +244,9 @@ class TopicManager:
                 raise
 
         try:
-            user_ids = await self.redis.get_all_users_ids()
-            raw_map: dict[bytes, bytes] = await self.redis.redis.hgetall(
-                self.redis.NAME
+            user_ids = await redis_storage.get_all_users_ids()
+            raw_map: dict[bytes, bytes] = await redis_storage.redis.hgetall(
+                redis_storage.NAME
             )
         except Exception as exc:
             logging.error(
