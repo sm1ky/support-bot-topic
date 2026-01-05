@@ -116,6 +116,8 @@ async def handler(
     if message_mapping_data:
         message_mapping = json.loads(message_mapping_data)
 
+    reply_to_message_id = None
+
     try:
         # Проверяем, есть ли reply на сообщение
         if message.reply_to_message:
@@ -146,11 +148,38 @@ async def handler(
                 )
 
         if not album:
-            await message.copy_to(chat_id=user_data.id)
+            sent_msg = await message.copy_to(
+                chat_id=user_data.id, reply_to_message_id=reply_to_message_id
+            )
+
+            # Сохраняем обратный маппинг (для ответов от пользователя)
+            message_mapping[str(sent_msg.message_id)] = message.message_id
         else:
             # Копируем альбом пользователю
             msg_list = await album.copy_to(chat_id=user_data.id)
 
+            # Сохраняем маппинг для первого сообщения
+            if isinstance(msg_list, list) and len(msg_list) > 0:
+                message_mapping[str(msg_list[0].message_id)] = message.message_id
+
+            # Собираем все подписи из альбома
+            captions = []
+            for idx, msg_item in enumerate(msg_list, start=1):
+                if hasattr(msg_item, "caption") and msg_item.caption:
+                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
+                elif hasattr(msg_item, "caption"):
+                    captions.append(f"📸 Фото {idx}: [без подписи]")
+
+            # Если есть подписи, отправляем их сводкой
+            if captions:
+                captions_text = "\n\n".join(captions)
+                await message.bot.send_message(
+                    chat_id=user_data.id,
+                    text=f"<b>📝 Подписи к медиа:</b>\n\n{captions_text}",
+                    parse_mode="HTML",
+                )
+
+        # Сохраняем обновленный маппинг в Redis
         await redis.redis.set(
             message_mapping_key,
             json.dumps(message_mapping),
@@ -162,6 +191,7 @@ async def handler(
             text = manager.text_message.get("blocked_by_user")
         else:
             text = manager.text_message.get("message_not_sent")
+        logging.error(f"Telegram API error: {ex}", exc_info=True)
 
     except Exception as e:
         text = manager.text_message.get("message_not_sent")
