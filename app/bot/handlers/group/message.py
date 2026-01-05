@@ -132,21 +132,6 @@ async def handler(
                     )
                     break
 
-            # Только если маппинг НЕ найден - отправляем текстовую цитату
-            if reply_to_message_id is None:
-                reply_text = (
-                    message.reply_to_message.text
-                    or message.reply_to_message.caption
-                    or "[медиа]"
-                )
-                reply_header = (
-                    f"<blockquote>↩️ Ответ на сообщение:\n{reply_text}</blockquote>\n\n"
-                )
-
-                await message.bot.send_message(
-                    chat_id=user_data.id, text=reply_header, parse_mode="HTML"
-                )
-
         if not album:
             sent_msg = await message.copy_to(
                 chat_id=user_data.id, reply_to_message_id=reply_to_message_id

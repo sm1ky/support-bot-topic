@@ -4,6 +4,7 @@ from aiogram import Bot
 from .close_inactive_topic import close_inactive_topics
 from .send_new_topics import send_new_topics
 from .bump_topic import bump_topic
+from .delete_inactive_topics import delete_inactive_topics
 import logging
 
 from app.config import load_config
@@ -40,6 +41,19 @@ async def setup_persistent_jobs(
         max_instances=1,
     )
     logger.info(f"Задача {job} добавлена с интервалом 2 часа")
+
+    # job = persistent_scheduler.add_job(
+    #     delete_inactive_topics,
+    #     "interval",
+    #     hours=6,
+    #     coalesce=True,
+    #     misfire_grace_time=1,
+    #     max_instances=1,
+    #     kwargs={"bot": bot, "config": config},
+    #     id="delete_inactive_topics",
+    #     replace_existing=True,
+    # )
+    # logger.info(f"Задача {job} добавлена с интервалом 6 часов")
 
     if not config.bot.DISABLE_BUMP:
         job = persistent_scheduler.add_job(
