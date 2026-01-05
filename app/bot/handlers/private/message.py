@@ -181,7 +181,6 @@ async def handle_waiting_state(
 
         # Проверяем, есть ли reply на сообщение
         if message.reply_to_message:
-            # Ищем соответствующее сообщение в топике (обратный маппинг)
             user_msg_id = str(message.reply_to_message.message_id)
             # Ищем в маппинге, где ключ - это message_id в личке пользователя
             if user_msg_id in message_mapping:
@@ -189,31 +188,28 @@ async def handle_waiting_state(
                 logging.info(
                     f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
                 )
-            else:
-                # Если маппинг не найден, отправляем информацию о reply текстом
-                reply_text = (
-                    message.reply_to_message.text
-                    or message.reply_to_message.caption
-                    or "[медиа]"
-                )
-                reply_header = f"<blockquote>↩️ Reply to:\n{reply_text}</blockquote>\n\n"
+            reply_header = f"Данное сообщение является ответом на:\n\n"
 
-                await message.bot.send_message(
-                    chat_id=manager.config.bot.GROUP_ID,
-                    message_thread_id=message_thread_id,
-                    text=reply_header,
-                    parse_mode="HTML",
-                )
-
-        if not album:
-            msg = await message.copy_to(
+            await message.bot.send_message(
                 chat_id=manager.config.bot.GROUP_ID,
                 message_thread_id=message_thread_id,
                 reply_to_message_id=reply_to_message_id,
+                text=reply_header,
+                parse_mode="HTML",
+            )
+
+        if not album:
+            msg = await message.forward(
+                chat_id=manager.config.bot.GROUP_ID,
+                message_thread_id=message_thread_id,
             )
 
             # Сохраняем маппинг: user_message_id -> topic_message_id
             message_mapping[str(message.message_id)] = msg.message_id
+
+            last_message_date = message.date.astimezone(
+                timezone(timedelta(hours=3))
+            ).strftime("%Y-%m-%d %H:%M:%S%z")
         else:
             # Копируем альбом
             msg_list = await album.copy_to(
@@ -228,6 +224,10 @@ async def handle_waiting_state(
             # Берем первое сообщение для даты
             msg = msg_list[0] if isinstance(msg_list, list) else msg_list
 
+            last_message_date = message.date.astimezone(
+                timezone(timedelta(hours=3))
+            ).strftime("%Y-%m-%d %H:%M:%S%z")
+
         # Сохраняем обновленный маппинг в Redis
         await redis.redis.set(
             message_mapping_key,
@@ -235,9 +235,6 @@ async def handle_waiting_state(
             ex=86400 * 7,  # Храним 7 дней
         )
 
-        last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime(
-            "%Y-%m-%d %H:%M:%S%z"
-        )
         user_data.last_message_date = last_message_date
         await redis.update_user(user_data.id, user_data)
         logging.info(f"Last message date updated: {user_data.last_message_date}")
