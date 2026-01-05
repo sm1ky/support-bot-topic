@@ -132,8 +132,8 @@ async def handler(
                     )
                     break
 
-            if not reply_to_message_id:
-                # Если маппинг не найден, отправляем информацию о reply текстом
+            # Только если маппинг НЕ найден - отправляем текстовую цитату
+            if reply_to_message_id is None:
                 reply_text = (
                     message.reply_to_message.text
                     or message.reply_to_message.caption
@@ -161,23 +161,6 @@ async def handler(
             # Сохраняем маппинг для первого сообщения
             if isinstance(msg_list, list) and len(msg_list) > 0:
                 message_mapping[str(msg_list[0].message_id)] = message.message_id
-
-            # Собираем все подписи из альбома
-            captions = []
-            for idx, msg_item in enumerate(msg_list, start=1):
-                if hasattr(msg_item, "caption") and msg_item.caption:
-                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
-                elif hasattr(msg_item, "caption"):
-                    captions.append(f"📸 Фото {idx}: [без подписи]")
-
-            # Если есть подписи, отправляем их сводкой
-            if captions:
-                captions_text = "\n\n".join(captions)
-                await message.bot.send_message(
-                    chat_id=user_data.id,
-                    text=f"<b>📝 Подписи к медиа:</b>\n\n{captions_text}",
-                    parse_mode="HTML",
-                )
 
         # Сохраняем обновленный маппинг в Redis
         await redis.redis.set(

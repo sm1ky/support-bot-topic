@@ -181,15 +181,19 @@ async def handle_waiting_state(
 
         # Проверяем, есть ли reply на сообщение
         if message.reply_to_message:
-            # Ищем соответствующее сообщение в топике
+            # Ищем соответствующее сообщение в топике (обратный маппинг)
             user_msg_id = str(message.reply_to_message.message_id)
-            if user_msg_id in message_mapping:
-                reply_to_message_id = message_mapping[user_msg_id]
-                logging.info(
-                    f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
-                )
-            else:
-                # Если маппинг не найден, отправляем информацию о reply текстом
+            # Ищем в маппинге, где ключ - это message_id в личке пользователя
+            for stored_user_msg_id, topic_msg_id in message_mapping.items():
+                if stored_user_msg_id == user_msg_id:
+                    reply_to_message_id = topic_msg_id
+                    logging.info(
+                        f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
+                    )
+                    break
+
+            # Только если маппинг НЕ найден - отправляем текстовую цитату
+            if reply_to_message_id is None:
                 reply_text = (
                     message.reply_to_message.text
                     or message.reply_to_message.caption
@@ -285,17 +289,17 @@ async def handle_waiting_state(
 
     # Send a confirmation message to the user
     get_question_position: int | None = await TopicManager.get_question_position(
-        redis_storage=redis, user_id=user_data.id
+        redis, user_data.id
     )
-    is_topic_open = await topic_manager.is_topic_open(
-        chat_id=user_data.id, message_thread_id=message_thread_id
-    )
-    if not is_topic_open:
+
+    # Проверяем статус топика (открыт/принят в работу или новый)
+    if user_data.topic_status == "open":
+        text = manager.text_message.get("message_sent_topic_open")
+    else:
         text = manager.text_message.get("message_sent")
         with suppress(IndexError, KeyError):
             text = text.format(position=get_question_position)
-    else:
-        text = manager.text_message.get("message_sent_topic_open")
+
     # Reply to the edited message with the specified text
     msg = await message.reply(text)
     # Wait for 5 seconds before deleting the reply
