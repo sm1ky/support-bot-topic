@@ -184,16 +184,13 @@ async def handle_waiting_state(
             # Ищем соответствующее сообщение в топике (обратный маппинг)
             user_msg_id = str(message.reply_to_message.message_id)
             # Ищем в маппинге, где ключ - это message_id в личке пользователя
-            for stored_user_msg_id, topic_msg_id in message_mapping.items():
-                if stored_user_msg_id == user_msg_id:
-                    reply_to_message_id = topic_msg_id
-                    logging.info(
-                        f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
-                    )
-                    break
-
-            # Только если маппинг НЕ найден - отправляем текстовую цитату
-            if reply_to_message_id is None:
+            if user_msg_id in message_mapping:
+                reply_to_message_id = message_mapping[user_msg_id]
+                logging.info(
+                    f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
+                )
+            else:
+                # Если маппинг не найден, отправляем информацию о reply текстом
                 reply_text = (
                     message.reply_to_message.text
                     or message.reply_to_message.caption
@@ -209,7 +206,7 @@ async def handle_waiting_state(
                 )
 
         if not album:
-            msg = await message.forward(
+            msg = await message.copy_to(
                 chat_id=manager.config.bot.GROUP_ID,
                 message_thread_id=message_thread_id,
                 reply_to_message_id=reply_to_message_id,
@@ -227,24 +224,6 @@ async def handle_waiting_state(
             # Сохраняем маппинг для первого сообщения альбома
             if isinstance(msg_list, list) and len(msg_list) > 0:
                 message_mapping[str(message.message_id)] = msg_list[0].message_id
-
-            # Собираем все подписи из альбома
-            captions = []
-            for idx, msg_item in enumerate(msg_list, start=1):
-                if hasattr(msg_item, "caption") and msg_item.caption:
-                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
-                elif hasattr(msg_item, "caption"):
-                    captions.append(f"📸 Фото {idx}: [без подписи]")
-
-            # Если есть подписи, отправляем их сводкой
-            if captions:
-                captions_text = "\n\n".join(captions)
-                await message.bot.send_message(
-                    chat_id=manager.config.bot.GROUP_ID,
-                    message_thread_id=message_thread_id,
-                    text=f"<b>📝 Подписи к медиа:</b>\n\n{captions_text}",
-                    parse_mode="HTML",
-                )
 
             # Берем первое сообщение для даты
             msg = msg_list[0] if isinstance(msg_list, list) else msg_list
