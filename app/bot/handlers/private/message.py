@@ -125,6 +125,107 @@ async def handle_waiting_state(
     ):
         return await Window.main_menu(manager)
 
+    # async def copy_message_to_topic():
+    #     """
+    #     Copies the message or album to the forum topic.
+    #     If no album is provided, the message is copied. Otherwise, the album is copied.
+    #     """
+
+    #     message_thread_id = await get_or_create_forum_topic(
+    #         message.bot,
+    #         redis,
+    #         manager.config,
+    #         user_data,
+    #     )
+
+    #     choose = state_data.get("choosed_service")
+    #     service_id = state_data.get("service_id")
+
+    #     if current_state == Form.WAITING:
+    #         message_text = manager.text_message.get("subscription_question")
+    #         with suppress(IndexError, KeyError):
+    #             message_text = message_text.format(name=choose, service_id=service_id)
+    #     elif current_state == Form.PAYMENT:
+    #         message_text = manager.text_message.get("payment_question")
+    #     elif current_state == Form.OTHER:
+    #         message_text = manager.text_message.get("other_question")
+    #     else:
+    #         message_text = ""
+
+    #     if current_state is not None:
+    #         keyboard = InlineKeyboardMarkup(
+    #             inline_keyboard=[
+    #                 [
+    #                     InlineKeyboardButton(
+    #                         text="✅ Принять обращение", callback_data="apply_appeal"
+    #                     )
+    #                 ]
+    #             ]
+    #         )
+    #         await message.bot.send_message(
+    #             chat_id=manager.config.bot.GROUP_ID,
+    #             message_thread_id=message_thread_id,
+    #             text=message_text,
+    #             reply_markup=keyboard,
+    #         )
+
+    #     if not album:
+    #         msg = await message.forward(
+    #             chat_id=manager.config.bot.GROUP_ID,
+    #             message_thread_id=message_thread_id,
+    #         )
+    #     else:
+    #         msg = await album.copy_to(
+    #             chat_id=manager.config.bot.GROUP_ID,
+    #             message_thread_id=message_thread_id,
+    #         )
+
+    #     last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime(
+    #         "%Y-%m-%d %H:%M:%S%z"
+    #     )
+    #     user_data.last_message_date = last_message_date
+    #     await redis.update_user(user_data.id, user_data)
+    #     print(f"Last message date updated: {user_data.last_message_date}")
+
+    #     await manager.state.clear()
+
+    # try:
+    #     await copy_message_to_topic()
+    # except TelegramBadRequest as ex:
+    #     if "message thread not found" in ex.message:
+    #         user_data.message_thread_id = await create_forum_topic(
+    #             message.bot,
+    #             manager.config,
+    #             user_data.full_name,
+    #         )
+    #         await redis.update_user(user_data.id, user_data)
+    #         await copy_message_to_topic()
+    #     else:
+    #         raise
+
+    # # Delete previous message
+    # request_message = state_data.get("request_message")
+    # if request_message is not None:
+    #     await message.bot.delete_message(
+    #         chat_id=user_data.id, message_id=request_message
+    #     )
+    #     await manager.state.update_data(request_message=None)
+
+    # # Send a confirmation message to the user
+    # get_question_position: int | None = await topic_manager.get_question_position(
+    #     user_data.id
+    # )
+    # text = manager.text_message.get("message_sent")
+    # with suppress(IndexError, KeyError):
+    #     text = text.format(position=get_question_position)
+    # # Reply to the edited message with the specified text
+    # msg = await message.reply(text)
+    # # Wait for 5 seconds before deleting the reply
+    # await asyncio.sleep(5)
+    # # Delete the reply to the edited message
+    # await msg.delete()
+    # await manager.state.clear()
+
     async def copy_message_to_topic():
         """
         Copies the message or album to the forum topic.
@@ -169,23 +270,62 @@ async def handle_waiting_state(
                 reply_markup=keyboard,
             )
 
+        # Проверяем, есть ли reply на сообщение
+        if message.reply_to_message:
+            reply_text = (
+                message.reply_to_message.text
+                or message.reply_to_message.caption
+                or "[медиа]"
+            )
+            reply_header = f"<blockquote>↩️ Reply to:\n{reply_text}</blockquote>\n\n"
+
+            # Отправляем информацию о reply
+            await message.bot.send_message(
+                chat_id=manager.config.bot.GROUP_ID,
+                message_thread_id=message_thread_id,
+                text=reply_header,
+                parse_mode="HTML",
+            )
+
         if not album:
             msg = await message.forward(
                 chat_id=manager.config.bot.GROUP_ID,
                 message_thread_id=message_thread_id,
             )
         else:
-            msg = await album.copy_to(
+            # Копируем альбом
+            msg_list = await album.copy_to(
                 chat_id=manager.config.bot.GROUP_ID,
                 message_thread_id=message_thread_id,
             )
+
+            # Собираем все подписи из альбома
+            captions = []
+            for idx, msg_item in enumerate(msg_list, start=1):
+                if hasattr(msg_item, "caption") and msg_item.caption:
+                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
+                elif hasattr(msg_item, "caption"):
+                    captions.append(f"📸 Фото {idx}: [без подписи]")
+
+            # Если есть подписи, отправляем их сводкой
+            if captions:
+                captions_text = "\n\n".join(captions)
+                await message.bot.send_message(
+                    chat_id=manager.config.bot.GROUP_ID,
+                    message_thread_id=message_thread_id,
+                    text=f"<b>Подписи к медиа:</b>\n\n{captions_text}",
+                    parse_mode="HTML",
+                )
+
+            # Берем первое сообщение для даты
+            msg = msg_list[0] if isinstance(msg_list, list) else msg_list
 
         last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime(
             "%Y-%m-%d %H:%M:%S%z"
         )
         user_data.last_message_date = last_message_date
         await redis.update_user(user_data.id, user_data)
-        print(f"Last message date updated: {user_data.last_message_date}")
+        logging.info(f"Last message date updated: {user_data.last_message_date}")
 
         await manager.state.clear()
 
@@ -212,8 +352,8 @@ async def handle_waiting_state(
         await manager.state.update_data(request_message=None)
 
     # Send a confirmation message to the user
-    get_question_position: int | None = await topic_manager.get_question_position(
-        user_data.id
+    get_question_position: int | None = await TopicManager.get_question_position(
+        redis, user_data.id
     )
     text = manager.text_message.get("message_sent")
     with suppress(IndexError, KeyError):

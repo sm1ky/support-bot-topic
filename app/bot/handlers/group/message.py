@@ -96,9 +96,7 @@ async def handler(
 
     # Проверяем, открыт ли топик
     if user_data.topic_status == "closed":
-        text = manager.text_message.get(
-            "topic_closed_warning",
-        )
+        text = manager.text_message.get("topic_closed_warning")
         msg = await message.reply(text)
         await asyncio.sleep(10)
         await msg.delete()
@@ -111,16 +109,52 @@ async def handler(
     text = manager.text_message.get("message_sent_to_user")
 
     try:
+        # Проверяем, есть ли reply на сообщение
+        if message.reply_to_message:
+            reply_text = (
+                message.reply_to_message.text
+                or message.reply_to_message.caption
+                or "[медиа]"
+            )
+            reply_header = (
+                f"<blockquote>↩️ Ответ на сообщение:\n{reply_text}</blockquote>\n\n"
+            )
+
+            # Отправляем информацию о reply пользователю
+            await message.bot.send_message(
+                chat_id=user_data.id, text=reply_header, parse_mode="HTML"
+            )
+
         if not album:
             await message.copy_to(chat_id=user_data.id)
         else:
-            await album.copy_to(chat_id=user_data.id)
+            # Копируем альбом пользователю
+            msg_list = await album.copy_to(chat_id=user_data.id)
+
+            # Собираем все подписи из альбома
+            captions = []
+            for idx, msg_item in enumerate(msg_list, start=1):
+                if hasattr(msg_item, "caption") and msg_item.caption:
+                    captions.append(f"📸 Фото {idx}: {msg_item.caption}")
+                elif hasattr(msg_item, "caption"):
+                    captions.append(f"📸 Фото {idx}: [без подписи]")
+
+            # Если есть подписи, отправляем их сводкой
+            if captions:
+                captions_text = "\n\n".join(captions)
+                await message.bot.send_message(
+                    chat_id=user_data.id,
+                    text=f"<b>📝 Подписи к медиа:</b>\n\n{captions_text}",
+                    parse_mode="HTML",
+                )
 
     except TelegramAPIError as ex:
         if "blocked" in ex.message:
             text = manager.text_message.get("blocked_by_user")
+        else:
+            text = manager.text_message.get("message_not_sent")
 
-    except (Exception,):
+    except Exception:
         text = manager.text_message.get("message_not_sent")
 
     # Reply to the edited message with the specified text
