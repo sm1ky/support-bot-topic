@@ -260,9 +260,15 @@ async def handle_waiting_state(
     get_question_position: int | None = await TopicManager.get_question_position(
         redis_storage=redis, user_id=user_data.id
     )
-    text = manager.text_message.get("message_sent")
-    with suppress(IndexError, KeyError):
-        text = text.format(position=get_question_position)
+    is_topic_open = await topic_manager.is_topic_open(
+        chat_id=user_data.id, message_thread_id=message_thread_id
+    )
+    if not is_topic_open:
+        text = manager.text_message.get("message_sent")
+        with suppress(IndexError, KeyError):
+            text = text.format(position=get_question_position)
+    else:
+        text = manager.text_message.get("message_sent_topic_open")
     # Reply to the edited message with the specified text
     msg = await message.reply(text)
     # Wait for 5 seconds before deleting the reply

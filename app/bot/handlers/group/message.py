@@ -163,8 +163,9 @@ async def handler(
         else:
             text = manager.text_message.get("message_not_sent")
 
-    except Exception:
+    except Exception as e:
         text = manager.text_message.get("message_not_sent")
+        logging.error(f"Error sending message to user: {e}", exc_info=True)
 
     # Reply to the edited message with the specified text
     msg = await message.reply(text)

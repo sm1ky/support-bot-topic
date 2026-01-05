@@ -293,3 +293,39 @@ class TopicManager:
                 return pos
 
         return 0
+
+    async def is_topic_open(self, chat_id: int, message_thread_id: int) -> bool:
+        """
+        Проверяет, открыт ли топик.
+
+        :param chat_id: ID чата.
+        :param message_thread_id: ID топика.
+        :return: True если топик открыт, False если закрыт.
+        """
+        key = f"topic_status:{chat_id}:{message_thread_id}"
+        status = await self.redis.redis.get(key)
+        return status == b"open"
+
+    async def is_topic_new(self, chat_id: int, message_thread_id: int) -> bool:
+        """
+        Проверяет, новый ли топик.
+
+        :param chat_id: ID чата.
+        :param message_thread_id: ID топика.
+        :return: True если топик новый, False если нет.
+        """
+        key = f"topic_status:{chat_id}:{message_thread_id}"
+        status = await self.redis.redis.get(key)
+        return status == b"new"
+
+    async def is_topic_closed(self, chat_id: int, message_thread_id: int) -> bool:
+        """
+        Проверяет, закрыт ли топик.
+
+        :param chat_id: ID чата.
+        :param message_thread_id: ID топика.
+        :return: True если топик закрыт, False если открыт.
+        """
+        key = f"topic_status:{chat_id}:{message_thread_id}"
+        status = await self.redis.redis.get(key)
+        return status == b"closed"
