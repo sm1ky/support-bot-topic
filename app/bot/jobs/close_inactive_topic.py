@@ -26,6 +26,33 @@ async def close_inactive_topics(bot: Bot, config: Config) -> None:
     """
     GROUP_CHAT_ID = config.bot.GROUP_ID
 
+    def parse_datetime(value: str) -> datetime:
+        """
+        Универсальный разбор строки даты.
+        """
+        try:
+            # Попытка разбора с timezone
+            try:
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S%z")
+            except ValueError:
+                pass
+
+            # Попытка разбора с UTC+
+            if "UTC+" in value:
+                base, tz = value.rsplit(" UTC+", 1)
+                base_dt = datetime.strptime(base, "%Y-%m-%d %H:%M:%S")
+                offset = int(tz.split(":")[0])
+                return base_dt.replace(tzinfo=timezone(timedelta(hours=offset)))
+
+            # Попытка разбора без timezone (добавляем UTC)
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
+
+        except Exception as exc:
+            logger.error(f"Failed to parse datetime '{value}': {exc}")
+            raise
+
     try:
         async with aioredis.from_url(config.redis.dsn()) as redis_client:
             redis = RedisStorage(redis_client)
@@ -55,12 +82,37 @@ async def close_inactive_topics(bot: Bot, config: Config) -> None:
                     continue
 
                 # Проверяем дату последнего сообщения
-                last_message_date = user_data.last_message_date
+                last_message_date_str = user_data.last_message_date
 
-                if last_message_date and last_message_date < inactivity_threshold:
+                if not last_message_date_str:
+                    continue
+
+                try:
+                    last_message_date = parse_datetime(last_message_date_str)
+                except Exception as e:
+                    logger.warning(
+                        f"Не удалось распарсить дату для пользователя {user_id}: {last_message_date_str}"
+                    )
+                    continue
+
+                if last_message_date < inactivity_threshold:
                     try:
                         # Создаем экземпляр TextMessage для языка пользователя
                         text_message = TextMessage(user_data.language_code)
+
+                        # Изменяем название топика перед закрытием
+                        new_name = f"⭕️ {user_data.full_name}"
+                        try:
+                            await bot.edit_forum_topic(
+                                chat_id=GROUP_CHAT_ID,
+                                message_thread_id=user_data.message_thread_id,
+                                name=new_name,
+                            )
+                        except TelegramAPIError as ex:
+                            if "TOPIC_NOT_MODIFIED" not in str(ex):
+                                logger.warning(
+                                    f"Не удалось изменить название топика: {ex}"
+                                )
 
                         # Закрываем топик
                         await bot.close_forum_topic(
