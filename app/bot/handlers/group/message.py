@@ -1,4 +1,6 @@
 import asyncio
+import json
+import logging
 from typing import Optional
 
 from aiogram import Router, F
@@ -108,28 +110,52 @@ async def handler(
 
     text = manager.text_message.get("message_sent_to_user")
 
+    message_mapping_key = f"message_mapping:{user_data.id}"
+    message_mapping_data = await redis.redis.get(message_mapping_key)
+    message_mapping = {}
+    if message_mapping_data:
+        message_mapping = json.loads(message_mapping_data)
+
     try:
         # Проверяем, есть ли reply на сообщение
         if message.reply_to_message:
-            reply_text = (
-                message.reply_to_message.text
-                or message.reply_to_message.caption
-                or "[медиа]"
-            )
-            reply_header = (
-                f"<blockquote>↩️ Ответ на сообщение:\n{reply_text}</blockquote>\n\n"
-            )
+            # Ищем обратный маппинг (из топика в личку)
+            topic_msg_id = str(message.reply_to_message.message_id)
+            # Ищем в обратном порядке
+            for user_msg_id, saved_topic_msg_id in message_mapping.items():
+                if str(saved_topic_msg_id) == topic_msg_id:
+                    reply_to_message_id = int(user_msg_id)
+                    logging.info(
+                        f"Found reverse reply mapping: topic {topic_msg_id} -> user {reply_to_message_id}"
+                    )
+                    break
 
-            # Отправляем информацию о reply пользователю
-            await message.bot.send_message(
-                chat_id=user_data.id, text=reply_header, parse_mode="HTML"
-            )
+            if not reply_to_message_id:
+                # Если маппинг не найден, отправляем информацию о reply текстом
+                reply_text = (
+                    message.reply_to_message.text
+                    or message.reply_to_message.caption
+                    or "[медиа]"
+                )
+                reply_header = (
+                    f"<blockquote>↩️ Ответ на сообщение:\n{reply_text}</blockquote>\n\n"
+                )
+
+                await message.bot.send_message(
+                    chat_id=user_data.id, text=reply_header, parse_mode="HTML"
+                )
 
         if not album:
             await message.copy_to(chat_id=user_data.id)
         else:
             # Копируем альбом пользователю
             msg_list = await album.copy_to(chat_id=user_data.id)
+
+        await redis.redis.set(
+            message_mapping_key,
+            json.dumps(message_mapping),
+            ex=86400 * 7,  # Храним 7 дней
+        )
 
     except TelegramAPIError as ex:
         if "blocked" in ex.message:

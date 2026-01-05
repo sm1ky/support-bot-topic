@@ -1,5 +1,6 @@
 # app/bot/handlers/private/message.py
 import asyncio
+import json
 import logging  # Добавлен недостающий импорт
 from datetime import datetime, timezone, timedelta
 from contextlib import suppress
@@ -169,22 +170,38 @@ async def handle_waiting_state(
                 reply_markup=keyboard,
             )
 
+        message_mapping_key = f"message_mapping:{user_data.id}"
+        message_mapping_data = await redis.redis.get(message_mapping_key)
+        message_mapping = {}
+        if message_mapping_data:
+            message_mapping = json.loads(message_mapping_data)
+
         # Проверяем, есть ли reply на сообщение
         if message.reply_to_message:
-            reply_text = (
-                message.reply_to_message.text
-                or message.reply_to_message.caption
-                or "[медиа]"
-            )
-            reply_header = f"<blockquote>↩️ Reply to:\n{reply_text}</blockquote>\n\n"
 
-            # Отправляем информацию о reply
-            await message.bot.send_message(
-                chat_id=manager.config.bot.GROUP_ID,
-                message_thread_id=message_thread_id,
-                text=reply_header,
-                parse_mode="HTML",
-            )
+            reply_to_message_id = None
+            # Ищем соответствующее сообщение в топике
+            user_msg_id = str(message.reply_to_message.message_id)
+            if user_msg_id in message_mapping:
+                reply_to_message_id = message_mapping[user_msg_id]
+                logging.info(
+                    f"Found reply mapping: user {user_msg_id} -> topic {reply_to_message_id}"
+                )
+            else:
+                # Если маппинг не найден, отправляем информацию о reply текстом
+                reply_text = (
+                    message.reply_to_message.text
+                    or message.reply_to_message.caption
+                    or "[медиа]"
+                )
+                reply_header = f"<blockquote>↩️ Reply to:\n{reply_text}</blockquote>\n\n"
+
+                await message.bot.send_message(
+                    chat_id=manager.config.bot.GROUP_ID,
+                    message_thread_id=message_thread_id,
+                    text=reply_header,
+                    parse_mode="HTML",
+                )
 
         if not album:
             msg = await message.forward(
@@ -200,6 +217,13 @@ async def handle_waiting_state(
 
             # Берем первое сообщение для даты
             msg = msg_list[0] if isinstance(msg_list, list) else msg_list
+
+        # Обновляем маппинг сообщений в Redis
+        await redis.redis.set(
+            message_mapping_key,
+            json.dumps(message_mapping),
+            ex=86400 * 7,  # Храним 7 дней
+        )
 
         last_message_date = msg.date.astimezone(timezone(timedelta(hours=3))).strftime(
             "%Y-%m-%d %H:%M:%S%z"
