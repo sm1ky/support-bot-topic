@@ -154,6 +154,10 @@ async def handler(
             ex=86400 * 7,  # Храним 7 дней
         )
 
+        # Обновляем у пользователя информацию о последнем взаимодействии (user_data.last_message_date = last_message_date)
+        user_data.last_message_date = message.date
+        await redis.update_user(user_data.id, user_data)
+
     except TelegramAPIError as ex:
         if "blocked" in ex.message:
             text = manager.text_message.get("blocked_by_user")
