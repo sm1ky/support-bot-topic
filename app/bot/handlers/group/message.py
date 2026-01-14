@@ -1,4 +1,5 @@
 import asyncio
+from datetime import timedelta, timezone
 import json
 import logging
 from typing import Optional
@@ -155,7 +156,10 @@ async def handler(
         )
 
         # Обновляем у пользователя информацию о последнем взаимодействии (user_data.last_message_date = last_message_date)
-        user_data.last_message_date = message.date
+        last_message_date = message.date.astimezone(
+                timezone(timedelta(hours=3))
+            ).strftime("%Y-%m-%d %H:%M:%S%z")
+        user_data.last_message_date = last_message_date
         await redis.update_user(user_data.id, user_data)
 
     except TelegramAPIError as ex:
