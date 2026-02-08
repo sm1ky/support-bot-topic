@@ -2,6 +2,7 @@ import asyncio
 from datetime import timedelta, timezone
 import json
 import logging
+from datetime import timezone, timedelta
 from typing import Optional
 
 from aiogram import Router, F
@@ -109,6 +110,13 @@ async def handler(
         # If silent mode is enabled, ignore all messages.
         return
 
+    # Обновляем время последнего сообщения ПЕРЕД отправкой, чтобы топик не закрывался при активности поддержки
+    last_message_date = message.date.astimezone(timezone(timedelta(hours=3))).strftime(
+        "%Y-%m-%d %H:%M:%S%z"
+    )
+    user_data.last_message_date = last_message_date
+    await redis.update_user(user_data.id, user_data)
+
     text = manager.text_message.get("message_sent_to_user")
 
     message_mapping_key = f"message_mapping:{user_data.id}"
@@ -157,8 +165,8 @@ async def handler(
 
         # Обновляем у пользователя информацию о последнем взаимодействии (user_data.last_message_date = last_message_date)
         last_message_date = message.date.astimezone(
-                timezone(timedelta(hours=3))
-            ).strftime("%Y-%m-%d %H:%M:%S%z")
+            timezone(timedelta(hours=3))
+        ).strftime("%Y-%m-%d %H:%M:%S%z")
         user_data.last_message_date = last_message_date
         await redis.update_user(user_data.id, user_data)
 
